@@ -154,10 +154,14 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\Persistent-Threads\Persistent Threads\stdafx.cpp" />
+    <ClCompile Include="BilateralFilter.cpp" />
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="stdafx.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\Persistent-Threads\Persistent Threads\stdafx.h" />
+    <ClInclude Include="..\const.h" />
+    <ClInclude Include="BilateralFilter.h" />
+    <ClInclude Include="stdafx.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
