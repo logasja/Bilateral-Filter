@@ -241,3 +241,4 @@ ModelManifest.xml
 # FAKE - F# Make
 .fake/
 /Serial Bilateral Filter/Serial Bilateral Filter.vcxproj.filters
+/Matlab Bilateral Filter/Visual Studio 2015/settings
