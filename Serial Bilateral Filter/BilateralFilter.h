@@ -19,7 +19,7 @@ private:
 	void ApplyFilterColor(Mat* img, Mat* out);
 	void ApplyFilterGray(Mat* img, Mat* out);
 	Mat G;
-	int w, d, r;
+	float w, d, r;
 
 #ifdef _DEBUG
 	inline std::string type2str(int type) {

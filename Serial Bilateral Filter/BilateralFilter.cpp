@@ -69,7 +69,7 @@ void BilateralFilter::meshgrid(Mat * X, Mat * Y)
 	int N = w * 2 + 1;
 
 	// Used to create the X meshgrid matrix
-	Mat row(1, N, CV_32FC3);
+	Mat row(1, N, CV_32FC1);
 
 	// Creates the pattern of -w:w
 	float* p = row.ptr<float>(0);
@@ -95,6 +95,7 @@ void BilateralFilter::ApplyFilterColor(Mat * img, Mat * out)
 	int rowBound = img->rows - 1;
 	int colBound = img->cols - 1;
 	Mat tmp;
+	float rFilt = r * 100;
 	// Convert to Lab color space, makes application easier
 	cv::cvtColor(*img, tmp, CV_BGR2Lab);
 
@@ -103,7 +104,8 @@ void BilateralFilter::ApplyFilterColor(Mat * img, Mat * out)
 #endif
 
 	int i, j, iMin, iMax, jMin, jMax;
-	Mat I, dL, da, db;
+	float nF;
+	Mat I, dL, da, db, F;
 	std::vector<Mat> Ich(3);
 	for (i = 0; i <= rowBound; i++)
 	{
@@ -121,15 +123,17 @@ void BilateralFilter::ApplyFilterColor(Mat * img, Mat * out)
 
 			I = tmp(iMinMax,jMinMax);
 			
+			cv::split(I,Ich);
+
 #ifdef _DEBUG
 			if (i == 0 && j == 0)
 			{
 				std::cout << "Number of channels in I: " << I.channels() << endl;
-				std::cout << I << endl;
+				std::cout << "L mat:\n" << Ich[0] << endl << endl <<
+					"a mat:\n" << Ich[1] << endl << endl <<
+					"b mat:\n" << Ich[2] << endl << endl;
 			}
 #endif
-
-			cv::split(I,Ich);
 
 			cv::Point3_<float>* p = tmp.ptr<cv::Point3_<float>>(i, j);
 
@@ -168,20 +172,114 @@ void BilateralFilter::ApplyFilterColor(Mat * img, Mat * out)
 			dL = dL.mul(dL);
 			da = da.mul(da);
 			db = db.mul(db);
+
+#ifdef _DEBUG
+			if (i == 0 && j == 0)
+			{
+				std::cout << "dL, da, and db squared values respectively:\n" <<
+					dL << endl << endl <<
+					da << endl << endl <<
+					db << endl << endl;
+			}
+#endif
+
 			// Calcuate H matrix
-			Mat H = -(dL + da + db) / (2 * std::powf(r, 2.f));
+			Mat H = -(dL + da + db) / (2 * std::powf(rFilt, 2.f));
+
 			cv::exp(H, H);
 
+#ifdef _DEBUG
+			if (i == 0 && j == 0)
+				std::cout << "Channel number of H:\n" <<
+					H.channels() << endl
+					<< "The matrix H:\n"
+					<< H << endl << endl;
+#endif
+
+#ifdef _DEBUG
+
+			cv::Range a = iMinMax - i + w;
+			cv::Range b = jMinMax - j + w;
+
+			Mat Gsub = G(a, b);
+
+			if (i == 0 && j == 0)
+			{
+				std::cout << "Gsub is from i = " << a.start << " to " << a.end << endl <<
+					"\tj = " << b.start << " to " << b.end << endl <<
+					"Gsub:\n" << Gsub << endl << endl;
+			}
+
 			/* Calculating the response */
-			Mat F = 
+			cv::multiply(H, Gsub, F);
+
+			if (i == 0 && j == 0)
+			{
+				std::cout << "The response matrix F: \n" <<
+					F << endl << "\tWith " << F.channels() << " channels.\n";
+			}
+#else
+			cv::multiply(H, G(iMinMax - i + w, jMinMax - j + w), F);
+#endif
+
+			nF = cv::sum(F).val[0];
+
+			/* Apply to output image */
+			cv::Point3_<float>* o = out->ptr<cv::Point3_<float>>(i, j);
+
+#ifdef _DEBUG
+			// Piecewise calculation of pixel L, a, b values
+			Mat FI1 = F.mul(Ich.at(0));
+			Mat FI2 = F.mul(Ich.at(1));
+			Mat FI3 = F.mul(Ich.at(2));
+
+			float sFI1 = cv::sum(FI1).val[0];
+			float sFI2 = cv::sum(FI2).val[0];
+			float sFI3 = cv::sum(FI3).val[0];
+
+			float tFI1 = sFI1 / nF;
+			float tFI2 = sFI2 / nF;
+			float tFI3 = sFI3 / nF;
+
+			if (i == 0 && j == 0)
+				std::cout << "Multiplication Results:\n" <<
+				"\tF .* Ich(0)\n" << FI1 << endl << endl <<
+				"\tF .* Ich(1)\n" << FI2 << endl << endl <<
+				"\tF .* Ich(2)\n" << FI3 << endl << endl <<
+				"Sum Results:\n" <<
+				"\tsum(FI1):" << sFI1 << endl <<
+				"\tsum(FI2):" << sFI2 << endl <<
+				"\tsum(FI3):" << sFI3 << endl <<
+				"Total Results:\n" <<
+				"\tL:" << tFI1 << endl <<
+				"\ta:" << tFI2 << endl <<
+				"\tb:" << tFI3 << endl;
+
+			// Write to output image
+			o->x = tFI1;
+			o->y = tFI2;
+			o->z = tFI3;
+#else
+			o->x = cv::sum(F.mul(Ich.at(0))).val[0] / nF;
+			o->y = cv::sum(F.mul(Ich.at(1))).val[0] / nF;
+			o->z = cv::sum(F.mul(Ich.at(2))).val[0] / nF;
+#endif
 		}
 	}
 
 	// Convert back to BGR to allow for writing to file
-	cv::cvtColor(tmp, *out, CV_Lab2BGR);
+	cv::cvtColor(*out, *out, CV_Lab2BGR);
 	
 	// Don't forget to free memory
 	tmp.deallocate();
+	I.deallocate();
+	dL.deallocate();
+	da.deallocate();
+	db.deallocate();
+	F.deallocate();
+	Ich.at(0).deallocate();
+	Ich.at(1).deallocate();
+	Ich.at(2).deallocate();
 }
 
 void BilateralFilter::ApplyFilterGray(Mat * img, Mat * out)
