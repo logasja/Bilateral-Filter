@@ -114,7 +114,12 @@ void BilateralFilter::ApplyFilterColor(Mat * img, Mat * out)
 			iMax = std::min<int>(i + w + 1, rowBound);
 			jMin = std::max<int>(j - w, 0);
 			jMax = std::min<int>(j + w + 1, colBound);
-			I = tmp(cv::Range(iMin,iMax),cv::Range(jMin,jMax));
+
+			// Functionally equivalent to iMin:iMax in matlab
+			cv::Range iMinMax(iMin, iMax);
+			cv::Range jMinMax(jMin, jMax);
+
+			I = tmp(iMinMax,jMinMax);
 			
 #ifdef _DEBUG
 			if (i == 0 && j == 0)
@@ -168,7 +173,7 @@ void BilateralFilter::ApplyFilterColor(Mat * img, Mat * out)
 			cv::exp(H, H);
 
 			/* Calculating the response */
-
+			Mat F = 
 		}
 	}
 
