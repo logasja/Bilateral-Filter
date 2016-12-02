@@ -109,7 +109,7 @@ void BilateralFilter::ApplyFilterColor(Mat * img, Mat * out)
 	std::cout << "The temporary Lab matrix type is: " << type2str(tmp.type()) << endl;
 #endif
 
-	int i, j, iMin, iMax, jMin, jMax;
+	int i, j;
 	float nF;
 	Mat I, dL, da, db, F;
 	std::vector<Mat> Ich(3);
@@ -117,15 +117,21 @@ void BilateralFilter::ApplyFilterColor(Mat * img, Mat * out)
 	{
 		for (j = 0; j <= colBound; j++)
 		{
+#ifdef _DEBUG
 			// Get local region taking into account the bounds of the image
-			iMin = std::max<int>(i - w, 0);
-			iMax = std::min<int>(i + w + 1, rowBound);
-			jMin = std::max<int>(j - w, 0);
-			jMax = std::min<int>(j + w + 1, colBound);
+			int iMin = std::max<int>(i - w, 0);
+			int iMax = std::min<int>(i + w + 1, rowBound);
+			int jMin = std::max<int>(j - w, 0);
+			int jMax = std::min<int>(j + w + 1, colBound);
 
 			// Functionally equivalent to iMin:iMax in matlab
 			cv::Range iMinMax(iMin, iMax);
 			cv::Range jMinMax(jMin, jMax);
+#else
+			// Used to get a range of values from the tmp matrix
+			cv::Range iMinMax(std::max<int>(i - w, 0), std::min<int>(i + w + 1, rowBound));
+			cv::Range jMinMax(std::max<int>(j - w, 0), std::min<int>(j + w + 1, colBound));
+#endif
 
 			I = tmp(iMinMax,jMinMax);
 			
@@ -295,25 +301,30 @@ void BilateralFilter::ApplyFilterGray(Mat * img, Mat * out)
 
 	Mat tmp = *img;
 
-	int i, j, iMin, iMax, jMin, jMax;
-	float nF;
-	Mat I, dL, da, db, F;
-	std::vector<Mat> Ich(3);
+	int i, j;
+	Mat I, F;
 	for (i = 0; i <= rowBound; i++)
 	{
 		for (j = 0; j <= colBound; j++)
 		{
+#ifdef _DEBUG
 			// Get local region taking into account the bounds of the image
-			iMin = std::max<int>(i - w, 0);
-			iMax = std::min<int>(i + w + 1, rowBound);
-			jMin = std::max<int>(j - w, 0);
-			jMax = std::min<int>(j + w + 1, colBound);
+			int iMin = std::max<int>(i - w, 0);
+			int iMax = std::min<int>(i + w + 1, rowBound);
+			int jMin = std::max<int>(j - w, 0);
+			int jMax = std::min<int>(j + w + 1, colBound);
 
 			// Functionally equivalent to iMin:iMax in matlab
 			cv::Range iMinMax(iMin, iMax);
 			cv::Range jMinMax(jMin, jMax);
+#else
+			// Used to get a range of values from the tmp matrix
+			cv::Range iMinMax(std::max<int>(i - w, 0), std::min<int>(i + w + 1, rowBound));
+			cv::Range jMinMax(std::max<int>(j - w, 0), std::min<int>(j + w + 1, colBound));
+#endif
 
 			I = tmp(iMinMax, jMinMax);
+
 #ifdef _DEBUG
 			if (i == 0 && j == 0)
 			{
@@ -322,10 +333,12 @@ void BilateralFilter::ApplyFilterGray(Mat * img, Mat * out)
 			}
 #endif
 
+			/* Compute Gaussian intensity weights. */
 			Mat H = (I - img->at<float>(i, j));
 			H = -H.mul(H);
 			H = H / (2 * std::powf(r, 2.f));
 			cv::exp(H, H);
+
 #ifdef _DEBUG
 			if (i == 0 && j == 0)
 			{
@@ -370,7 +383,9 @@ void BilateralFilter::ApplyFilterGray(Mat * img, Mat * out)
 
 			*value = sumNum / sumDenom;
 #else
+			/* Calculate the response matrix */
 			cv::multiply(H, G(iMinMax - i + w, jMinMax - j + w), F);
+			/* Calculate pixel value */
 			*out->ptr<float>(i, j) = cv::sum(F.mul(I)).val[0] / cv::sum(F).val[0];
 #endif
 		}
