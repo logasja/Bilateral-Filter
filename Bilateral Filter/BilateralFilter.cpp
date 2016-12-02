@@ -22,12 +22,18 @@ Mat BilateralFilter::ApplyFilter(Mat img)
 	std::cout << "Data type of image:" << type2str(img.type()) << endl;
 #endif
 
-	Mat out = Mat::zeros(img.rows, img.cols, CV_32FC3);
+	Mat out;
 
 	if (img.channels() > 1)
-		ApplyFilterColor(&img ,&out);
+	{
+		out = Mat::zeros(img.rows, img.cols, CV_32FC3);
+		ApplyFilterColor(&img, &out);
+	}
 	else
-		ApplyFilterGray(&img ,&out);
+	{
+		out = Mat::zeros(img.rows, img.cols, CV_32FC1);
+		ApplyFilterGray(&img, &out);
+	}
 
 	return out;
 }
@@ -284,4 +290,89 @@ void BilateralFilter::ApplyFilterColor(Mat * img, Mat * out)
 
 void BilateralFilter::ApplyFilterGray(Mat * img, Mat * out)
 {
+	int rowBound = img->rows - 1;
+	int colBound = img->cols - 1;
+
+	Mat tmp = *img;
+
+	int i, j, iMin, iMax, jMin, jMax;
+	float nF;
+	Mat I, dL, da, db, F;
+	std::vector<Mat> Ich(3);
+	for (i = 0; i <= rowBound; i++)
+	{
+		for (j = 0; j <= colBound; j++)
+		{
+			// Get local region taking into account the bounds of the image
+			iMin = std::max<int>(i - w, 0);
+			iMax = std::min<int>(i + w + 1, rowBound);
+			jMin = std::max<int>(j - w, 0);
+			jMax = std::min<int>(j + w + 1, colBound);
+
+			// Functionally equivalent to iMin:iMax in matlab
+			cv::Range iMinMax(iMin, iMax);
+			cv::Range jMinMax(jMin, jMax);
+
+			I = tmp(iMinMax, jMinMax);
+#ifdef _DEBUG
+			if (i == 0 && j == 0)
+			{
+				std::cout << "I mat: " << endl <<
+					I << endl << endl;
+			}
+#endif
+
+			Mat H = (I - img->at<float>(i, j));
+			H = -H.mul(H);
+			H = H / (2 * std::powf(r, 2.f));
+			cv::exp(H, H);
+#ifdef _DEBUG
+			if (i == 0 && j == 0)
+			{
+				std::cout << "H mat: " << endl <<
+					H << endl << endl;
+			}
+
+			cv::Range a = iMinMax - i + w;
+			cv::Range b = jMinMax - j + w;
+
+			Mat Gsub = G(a, b);
+
+			if (i == 0 && j == 0)
+			{
+				std::cout << "Gsub is from i = " << a.start << " to " << a.end << endl <<
+					"\tj = " << b.start << " to " << b.end << endl <<
+					"Gsub:\n" << Gsub << endl << endl;
+			}
+
+			/* Calculating the response */
+			cv::multiply(H, Gsub, F);
+
+			if (i == 0 && j == 0)
+			{
+				std::cout << "The response matrix F: \n" <<
+					F << endl << "\tWith " << F.channels() << " channels.\n";
+			}
+
+			Mat mult = F.mul(I);
+
+			float sumNum = cv::sum(mult).val[0];
+			float sumDenom = cv::sum(F).val[0];
+
+			if (i == 0 && j == 0)
+			{
+				std::cout << "The matrix multiplication gave:\n" <<
+					mult << endl << endl <<
+					"with the numerator = " << sumNum << " and denominator = " << sumDenom << endl;
+			}
+
+			float* value = out->ptr<float>(i, j);
+
+			*value = sumNum / sumDenom;
+#else
+			cv::multiply(H, G(iMinMax - i + w, jMinMax - j + w), F);
+			*out->ptr<float>(i, j) = cv::sum(F.mul(I)).val[0] / cv::sum(F).val[0];
+#endif
+		}
+	}
 }

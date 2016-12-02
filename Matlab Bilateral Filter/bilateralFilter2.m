@@ -22,7 +22,7 @@ function B = bilateralFilter2(img, width, sigma)
     end
 
     % Decide which filter to use, color or grayscale
-    if size(img, 3) == 1
+    if ndims(img) == 2
         B = bilatGray(img, width, sigma(1), sigma(2));
     else
         B = bilatColor(img, width, sigma(1), sigma(2));

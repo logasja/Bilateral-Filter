@@ -6,11 +6,23 @@ using std::cout;
 
 int main(int argc, char **argv)
 {
+	cout << "Choose what type of image to load:\n\t1: Color\n\t2: Grayscale" << endl;
+
+	int selection, mode;
+	std::cin >> selection;
+
+	switch (selection)
+	{
+	case 2: mode = CV_LOAD_IMAGE_GRAYSCALE; break;
+	case 1: 
+	default: mode = CV_LOAD_IMAGE_ANYCOLOR | CV_LOAD_IMAGE_ANYDEPTH;
+	}
+
 	cout << "Creating Bilateral Filter...\n";
 	BilateralFilter *bf = new BilateralFilter();
 
 	cout << "Reading in image...\n";
-	Mat input = imread(inputPath, CV_LOAD_IMAGE_ANYCOLOR | CV_LOAD_IMAGE_ANYDEPTH);
+	Mat input = imread(inputPath, mode);
 	cout << "Displaying input image...\n";
 	cv::imshow("Input",input);
 	cv::waitKey(0);
