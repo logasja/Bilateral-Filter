@@ -17,6 +17,7 @@
 
 // My headers
 #include "BilateralFilter.h"
+#include "BilateralFilter.cuh"
 #include "../const.h"
 
 // opencv requires debug libraries when running in debug mode

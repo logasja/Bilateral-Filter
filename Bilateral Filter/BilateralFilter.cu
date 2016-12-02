@@ -1,8 +1,4 @@
-
-#include "cuda_runtime.h"
-#include "device_launch_parameters.h"
 #include "BilateralFilter.h"
-#include <stdio.h>
 
 static inline void _safe_cuda_call(cudaError err, const char* msg, const char* file_name, const int line_number)
 {
@@ -24,14 +20,25 @@ __global__ void color_bilateral_filter(const float* input,
 										int step)
 {
 	// 2D Index of current thread
-	const int xIdx = blockIdx.x * blockDim.x + threadIdx.x;
-	const int yIdx = blockIdx.y * blockDim.y + threadIdx.y;
+	//const int xIdx = blockIdx.x * blockDim.x + threadIdx.x;
+	//const int yIdx = blockIdx.y * blockDim.y + threadIdx.y;
 
-	// Only valid threads can perform memory I/O
-	if ((xIdx < width) && (yIdx < height))
-	{
+	//// Only valid threads can perform memory I/O
+	//if ((xIdx < width) && (yIdx < height))
+	//{
+	//	// Location of pixel in input
+	//	const int tid = yIdx * step + (3 * xIdx);
 
-	}
+	//	const float blue	= input[tid];
+	//	const float green	= input[tid + 1];
+	//	const float red		= input[tid + 2];
+
+	//	// Do filtering here
+
+	//	output[tid]			= abs(1 - blue);
+	//	output[tid + 1]		= abs(1 - green);
+	//	output[tid + 2]		= abs(1 - red);
+	//}
 }
 
 // Kernel code for bilateral filtering of gray image
@@ -71,6 +78,7 @@ Mat BilateralFilter::ApplyFilterCUDA(Mat img)
 	// Copy data from OpenCV input image ot device memory
 	CHECK_CUDA_ERROR(cudaMemcpy(d_input, img.ptr<float>(), bytes, cudaMemcpyHostToDevice), "CUDA Memcpy Host to Device Failed");
 
+
 	// Define block size
 	const dim3 block(16, 16);
 
@@ -81,13 +89,13 @@ Mat BilateralFilter::ApplyFilterCUDA(Mat img)
 	{
 		out = Mat::zeros(img.rows, img.cols, CV_32FC3);
 		// Launch bilateral filter kernel for color image
-		color_bilateral_filter<<<grid,block>>>(d_input, d_output, img.cols, img.rows, img.step);
+		color_bilateral_filter << <grid, block >> >(d_input, d_output, img.cols, img.rows, img.step);
 	}
 	else
 	{
 		out = Mat::zeros(img.rows, img.cols, CV_32FC1);
 		// Launch bilateral filter kernel for grayscale image
-		gray_bilateral_filter<<<grid,block>>>(d_input, d_output, img.cols, img.rows, img.step);
+		gray_bilateral_filter << <grid, block >> >(d_input, d_output, img.cols, img.rows, img.step);
 	}
 
 	// Synchronize to check for kernel launch errors

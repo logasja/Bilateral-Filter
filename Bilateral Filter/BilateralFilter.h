@@ -2,6 +2,8 @@
 
 #include <opencv2\core\core.hpp>
 #include <iostream>
+#include "cuda_runtime.h"
+#include "device_launch_parameters.h"
 
 using cv::Mat;
 using std::endl;
@@ -19,6 +21,7 @@ private:
 	void meshgrid(Mat* X, Mat* Y);
 	void ApplyFilterColor(Mat* img, Mat* out);
 	void ApplyFilterGray(Mat* img, Mat* out);
+	void ApplyFilterColorCUDA(Mat * img, Mat * out, dim3 block, dim3 grid, size_t bytes);
 	Mat G;
 	float w, d, r;
 

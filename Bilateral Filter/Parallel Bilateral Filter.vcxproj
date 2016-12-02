@@ -160,7 +160,7 @@ copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"</Command>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <CudaCompile Include="kernel.cu" />
+    <CudaCompile Include="BilateralFilter.cu" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="BilateralFilter.cpp" />
@@ -169,6 +169,7 @@ copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"</Command>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\const.h" />
+    <ClInclude Include="BilateralFilter.cuh" />
     <ClInclude Include="BilateralFilter.h" />
     <ClInclude Include="stdafx.h" />
   </ItemGroup>
