@@ -1,121 +1,104 @@
 
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
-
+#include "BilateralFilter.h"
 #include <stdio.h>
 
-cudaError_t addWithCuda(int *c, const int *a, const int *b, unsigned int size);
-
-__global__ void addKernel(int *c, const int *a, const int *b)
+static inline void _safe_cuda_call(cudaError err, const char* msg, const char* file_name, const int line_number)
 {
-    int i = threadIdx.x;
-    c[i] = a[i] + b[i];
+	if (err != cudaSuccess)
+	{
+		fprintf(stderr, "%s\n\nFile: %s\n\nLine Number: %d\n\nReason: %s\n", msg, file_name, line_number, cudaGetErrorString(err));
+		std::cin.get();
+		exit(EXIT_FAILURE);
+	}
 }
 
-//int main()
-//{
-//    const int arraySize = 5;
-//    const int a[arraySize] = { 1, 2, 3, 4, 5 };
-//    const int b[arraySize] = { 10, 20, 30, 40, 50 };
-//    int c[arraySize] = { 0 };
-//
-//    // Add vectors in parallel.
-//    cudaError_t cudaStatus = addWithCuda(c, a, b, arraySize);
-//    if (cudaStatus != cudaSuccess) {
-//        fprintf(stderr, "addWithCuda failed!");
-//        return 1;
-//    }
-//
-//    printf("{1,2,3,4,5} + {10,20,30,40,50} = {%d,%d,%d,%d,%d}\n",
-//        c[0], c[1], c[2], c[3], c[4]);
-//
-//    // cudaDeviceReset must be called before exiting in order for profiling and
-//    // tracing tools such as Nsight and Visual Profiler to show complete traces.
-//    cudaStatus = cudaDeviceReset();
-//    if (cudaStatus != cudaSuccess) {
-//        fprintf(stderr, "cudaDeviceReset failed!");
-//        return 1;
-//    }
-//
-//    return 0;
-//}
+#define CHECK_CUDA_ERROR(call, msg) _safe_cuda_call((call),(msg),__FILE__,__LINE__)
 
-// Helper function for using CUDA to add vectors in parallel.
-cudaError_t addWithCuda(int *c, const int *a, const int *b, unsigned int size)
+// Kernel code for bilateral filtering of color image
+__global__ void color_bilateral_filter(const float* input, 
+										float* output, 
+										int width, 
+										int height,
+										int step)
 {
-    int *dev_a = 0;
-    int *dev_b = 0;
-    int *dev_c = 0;
-    cudaError_t cudaStatus;
+	// 2D Index of current thread
+	const int xIdx = blockIdx.x * blockDim.x + threadIdx.x;
+	const int yIdx = blockIdx.y * blockDim.y + threadIdx.y;
 
-    // Choose which GPU to run on, change this on a multi-GPU system.
-    cudaStatus = cudaSetDevice(0);
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaSetDevice failed!  Do you have a CUDA-capable GPU installed?");
-        goto Error;
-    }
+	// Only valid threads can perform memory I/O
+	if ((xIdx < width) && (yIdx < height))
+	{
 
-    // Allocate GPU buffers for three vectors (two input, one output)    .
-    cudaStatus = cudaMalloc((void**)&dev_c, size * sizeof(int));
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMalloc failed!");
-        goto Error;
-    }
+	}
+}
 
-    cudaStatus = cudaMalloc((void**)&dev_a, size * sizeof(int));
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMalloc failed!");
-        goto Error;
-    }
+// Kernel code for bilateral filtering of gray image
+__global__ void gray_bilateral_filter(const float* input,
+										float* output,
+										int width,
+										int height,
+										int step)
+{
+	// 2D Index of current thread
+	const int xIdx = blockIdx.x * blockDim.x + threadIdx.x;
+	const int yIdx = blockIdx.y * blockDim.y + threadIdx.y;
 
-    cudaStatus = cudaMalloc((void**)&dev_b, size * sizeof(int));
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMalloc failed!");
-        goto Error;
-    }
+	// Only valid threads can perform memory I/O
+	if ((xIdx < width) && (yIdx < height))
+	{
 
-    // Copy input vectors from host memory to GPU buffers.
-    cudaStatus = cudaMemcpy(dev_a, a, size * sizeof(int), cudaMemcpyHostToDevice);
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMemcpy failed!");
-        goto Error;
-    }
+	}
+}
 
-    cudaStatus = cudaMemcpy(dev_b, b, size * sizeof(int), cudaMemcpyHostToDevice);
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMemcpy failed!");
-        goto Error;
-    }
+Mat BilateralFilter::ApplyFilterCUDA(Mat img)
+{
+#ifdef _DEBUG
+	std::cout << "Data type of image:" << type2str(img.type()) << endl;
+#endif
 
-    // Launch a kernel on the GPU with one thread for each element.
-    addKernel<<<1, size>>>(dev_c, dev_a, dev_b);
+	Mat out;
 
-    // Check for any errors launching the kernel
-    cudaStatus = cudaGetLastError();
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "addKernel launch failed: %s\n", cudaGetErrorString(cudaStatus));
-        goto Error;
-    }
-    
-    // cudaDeviceSynchronize waits for the kernel to finish, and returns
-    // any errors encountered during the launch.
-    cudaStatus = cudaDeviceSynchronize();
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaDeviceSynchronize returned error code %d after launching addKernel!\n", cudaStatus);
-        goto Error;
-    }
+	const size_t bytes = img.step * img.rows;
 
-    // Copy output vector from GPU buffer to host memory.
-    cudaStatus = cudaMemcpy(c, dev_c, size * sizeof(int), cudaMemcpyDeviceToHost);
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMemcpy failed!");
-        goto Error;
-    }
+	float* d_input, *d_output;
 
-Error:
-    cudaFree(dev_c);
-    cudaFree(dev_a);
-    cudaFree(dev_b);
-    
-    return cudaStatus;
+	// Allocation of device memory
+	CHECK_CUDA_ERROR(cudaMalloc<float>(&d_input, bytes), "CUDA Malloc Failed");
+	CHECK_CUDA_ERROR(cudaMalloc<float>(&d_output, bytes), "CUDA Malloc Failed");
+
+	// Copy data from OpenCV input image ot device memory
+	CHECK_CUDA_ERROR(cudaMemcpy(d_input, img.ptr<float>(), bytes, cudaMemcpyHostToDevice), "CUDA Memcpy Host to Device Failed");
+
+	// Define block size
+	const dim3 block(16, 16);
+
+	// Grid size in order to cover whole image
+	const dim3 grid((img.cols + block.x - 1) / block.x, (img.rows + block.y - 1) / block.y);
+
+	if (img.channels() > 1)
+	{
+		out = Mat::zeros(img.rows, img.cols, CV_32FC3);
+		// Launch bilateral filter kernel for color image
+		color_bilateral_filter<<<grid,block>>>(d_input, d_output, img.cols, img.rows, img.step);
+	}
+	else
+	{
+		out = Mat::zeros(img.rows, img.cols, CV_32FC1);
+		// Launch bilateral filter kernel for grayscale image
+		gray_bilateral_filter<<<grid,block>>>(d_input, d_output, img.cols, img.rows, img.step);
+	}
+
+	// Synchronize to check for kernel launch errors
+	CHECK_CUDA_ERROR(cudaDeviceSynchronize(), "Kernel Launch Failed");
+
+	// Copy back data from the destination device memory to the OpenCV output image
+	CHECK_CUDA_ERROR(cudaMemcpy(out.ptr<float>(), d_output, bytes, cudaMemcpyDeviceToHost), "CUDA Memcpy Host To Device Failed");
+
+	// Free the device memory
+	CHECK_CUDA_ERROR(cudaFree(d_input), "CUDA Free Failed");
+	CHECK_CUDA_ERROR(cudaFree(d_output), "CUDA Free Failed");
+
+	return out;
 }

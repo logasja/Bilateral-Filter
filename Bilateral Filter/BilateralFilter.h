@@ -13,6 +13,7 @@ public:
 	~BilateralFilter();
 
 	Mat ApplyFilter(Mat img);
+	Mat ApplyFilterCUDA(Mat img);
 private:
 	void GenerateGMat();
 	void meshgrid(Mat* X, Mat* Y);

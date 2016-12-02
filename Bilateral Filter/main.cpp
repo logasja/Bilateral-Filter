@@ -32,6 +32,7 @@ int main(int argc, char **argv)
 	input.convertTo(input, CV_32FC3, 1/255.0);
 
 	cout << "Applying filter...\n";
+	Mat tmp = bf->ApplyFilterCUDA(input);
 	Mat output = bf->ApplyFilter(input);
 
 	cout << "Displaying output image...\n";
