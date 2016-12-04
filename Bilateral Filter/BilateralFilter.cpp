@@ -1,7 +1,5 @@
 #include "BilateralFilter.h"
 
-#include "opencv2\imgproc\imgproc.hpp"
-
 BilateralFilter::BilateralFilter(int width, float sigd, float sigr)
 {
 	w = width;

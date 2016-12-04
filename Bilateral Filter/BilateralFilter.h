@@ -4,6 +4,7 @@
 #include <iostream>
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
+#include "opencv2\imgproc\imgproc.hpp"
 
 using cv::Mat;
 #ifdef _DEBUG

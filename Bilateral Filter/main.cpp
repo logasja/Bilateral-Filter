@@ -47,6 +47,8 @@ int main(int argc, char **argv)
 
 	cout << "Applying filter...\n";
 	Mat tmp = bf->ApplyFilterCUDA(input);
+	cv::imshow("Test", tmp);
+	cv::waitKey(0);
 	Mat output = bf->ApplyFilter(input);
 
 	cout << "Displaying output image...\n";

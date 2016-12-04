@@ -1,5 +1,7 @@
 #include "BilateralFilter.h"
 
+#include "device_functions.h"
+
 static inline void _safe_cuda_call(cudaError err, const char* msg, const char* file_name, const int line_number)
 {
 	if (err != cudaSuccess)
@@ -12,6 +14,18 @@ static inline void _safe_cuda_call(cudaError err, const char* msg, const char* f
 
 #define CHECK_CUDA_ERROR(call, msg) _safe_cuda_call((call),(msg),__FILE__,__LINE__)
 
+#define PI 3.14159265
+
+// An implementation of 1d gaussian calcualtion using optimized device functions
+inline __device__
+float gaussian1d_gpu(float x, float sigma)
+{
+	float variance = powf(sigma, 2);
+	float power = pow(x, 2); //this doesnt work for __powf(x,2.0f) for some reason
+	float exponent = -power / (2 * variance);
+	return expf(exponent) / sqrt(2 * PI * variance);
+}
+
 // Kernel code for bilateral filtering of color image
 __global__ 
 void color_bilateral_filter(const float* input,
@@ -21,6 +35,7 @@ void color_bilateral_filter(const float* input,
 							const int width, 
 							const int height,
 							const int step,
+							const int gstep,
 							float* output)
 {
 	// 2D Index of current thread
@@ -32,10 +47,13 @@ void color_bilateral_filter(const float* input,
 	{
 		const char* inCharPtr = (char*)input;
 		const float* srcRow = (const float*)(inCharPtr + yIdx*step);
-		float L = srcRow[xIdx];
-		float a = srcRow[xIdx + 1];
-		float b = srcRow[xIdx + 2];
 
+		float3 cLab = make_float3(srcRow[xIdx], srcRow[xIdx + 1], srcRow[xIdx + 2]);
+
+		// The normalization values that are iteratively solved for
+		float3 nLab = make_float3(0.f, 0.f, 0.f);
+		float3 rLab = make_float3(0.f, 0.f, 0.f);
+		float3 gLab, wLab, pLab;
 		for(int i = -w; i <= w; i++)
 			for (int j = -w; j <= w; j++)
 			{
@@ -48,8 +66,45 @@ void color_bilateral_filter(const float* input,
 				if (x_sample > width - 1) x_sample = width - 1 - i;
 				if (y_sample > height - 1) y_sample = height - 1 - i;
 
+				const float* aRow = (const float*)(inCharPtr + y_sample*step);
+				pLab = make_float3(aRow[x_sample], aRow[x_sample + 1], aRow[x_sample + 2]);
 
+				char* gCharPtr = (char*)kernel;
+				float* gRow = (float*)(gCharPtr + i*gstep);
+
+				float spatial = gRow[j];
+				// Calcualte the range gaussian values for L, a, b values
+				//	uses difference between center color and current window location
+				gLab.x = gaussian1d_gpu(cLab.x - pLab.x, r);
+				gLab.y = gaussian1d_gpu(cLab.y - pLab.y, r);
+				gLab.z = gaussian1d_gpu(cLab.z - pLab.z, r);
+
+				// The combined spatial and range gaussian
+				wLab.x = gLab.x * spatial;
+				wLab.y = gLab.y * spatial;
+				wLab.z = gLab.z * spatial;
+
+				// Add this part of the window's weight to the total normalization
+				nLab.x = nLab.x + w;
+				nLab.y = nLab.y + w;
+				nLab.z = nLab.z + w;
+
+				// Calcuate response
+				rLab.x = rLab.x + (pLab.x * wLab.x);
+				rLab.y = rLab.y + (pLab.y * wLab.y);
+				rLab.z = rLab.z + (pLab.z * wLab.z);
 			}
+
+		// Normalize the response through use of the normalization value found in the loop
+		rLab.x /= nLab.x;
+		rLab.y /= nLab.y;
+		rLab.z /= nLab.z;
+
+		char* outCharPtr = (char*)input;
+		float* outRow = (float*)(outCharPtr + yIdx*step);
+		outRow[xIdx] = rLab.x;
+		outRow[xIdx+1] = rLab.y;
+		outRow[xIdx+2] = rLab.z;
 	}
 }
 
@@ -62,6 +117,7 @@ void gray_bilateral_filter(const float* input,
 							const int width,
 							const int height,
 							const int step, 
+							const int gstep,
 							float* output)
 {
 	// 2D Index of current thread
@@ -88,6 +144,8 @@ Mat BilateralFilter::ApplyFilterCUDA(Mat img)
 #endif
 
 	Mat out;
+
+	cv::cvtColor(img, img, CV_BGR2Lab);
 
 	const size_t bytes = img.step * img.rows;
 
@@ -120,13 +178,13 @@ Mat BilateralFilter::ApplyFilterCUDA(Mat img)
 	{
 		out = Mat::zeros(img.rows, img.cols, CV_32FC3);
 		// Launch bilateral filter kernel for color image
-		color_bilateral_filter << <grid, block >> >(d_input, d_kernel, r, w, img.cols, img.rows, img.step, d_output);
+		color_bilateral_filter << <grid, block >> >(d_input, d_kernel, r, w, img.cols, img.rows, img.step, G.step, d_output);
 	}
 	else
 	{
 		out = Mat::zeros(img.rows, img.cols, CV_32FC1);
 		// Launch bilateral filter kernel for grayscale image
-		gray_bilateral_filter << <grid, block >> >(d_input, d_kernel, r, w, img.cols, img.rows, img.step, d_output);
+		gray_bilateral_filter << <grid, block >> >(d_input, d_kernel, r, w, img.cols, img.rows, img.step, G.step, d_output);
 	}
 
 	// Synchronize to check for kernel launch errors
@@ -138,6 +196,8 @@ Mat BilateralFilter::ApplyFilterCUDA(Mat img)
 	// Free the device memory
 	CHECK_CUDA_ERROR(cudaFree(d_input), "CUDA Free Failed");
 	CHECK_CUDA_ERROR(cudaFree(d_output), "CUDA Free Failed");
+
+	cv::cvtColor(out, out, CV_Lab2BGR);
 
 	return out;
 }
