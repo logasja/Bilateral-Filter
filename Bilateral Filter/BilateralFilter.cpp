@@ -2,19 +2,14 @@
 
 #include "opencv2\imgproc\imgproc.hpp"
 
-BilateralFilter::BilateralFilter(float width, float sigd, float sigr)
+BilateralFilter::BilateralFilter(int width, float sigd, float sigr)
 {
-	w = std::ceilf(width);
+	w = width;
 	d = std::ceilf(sigd);
 	r = sigr;
 	GenerateGMat();
 }
 
-
-BilateralFilter::~BilateralFilter()
-{
-	G.deallocate();
-}
 
 Mat BilateralFilter::ApplyFilter(Mat img)
 {
@@ -382,6 +377,7 @@ void BilateralFilter::ApplyFilterGray(Mat * img, Mat * out)
 			float* value = out->ptr<float>(i, j);
 
 			*value = sumNum / sumDenom;
+
 #else
 			/* Calculate the response matrix */
 			cv::multiply(H, G(iMinMax - i + w, jMinMax - j + w), F);
@@ -389,5 +385,10 @@ void BilateralFilter::ApplyFilterGray(Mat * img, Mat * out)
 			*out->ptr<float>(i, j) = cv::sum(F.mul(I)).val[0] / cv::sum(F).val[0];
 #endif
 		}
+#ifdef _DEBUG
+		// Displays row after computing
+		imshow("Output", *out);
+		waitKey(1);
+#endif
 	}
 }

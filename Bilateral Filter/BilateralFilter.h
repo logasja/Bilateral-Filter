@@ -6,12 +6,17 @@
 #include "device_launch_parameters.h"
 
 using cv::Mat;
+#ifdef _DEBUG
+#include <opencv2\highgui\highgui.hpp>
 using std::endl;
+using cv::imshow;
+using cv::waitKey;
+#endif
 
 class BilateralFilter
 {
 public:
-	BilateralFilter(float width = 5.f, float sigd = 3.f, float sigr = 0.1f);
+	BilateralFilter(int width = 5, float sigd = 3.f, float sigr = 0.1f);
 	~BilateralFilter();
 
 	Mat ApplyFilter(Mat img);
@@ -21,9 +26,10 @@ private:
 	void meshgrid(Mat* X, Mat* Y);
 	void ApplyFilterColor(Mat* img, Mat* out);
 	void ApplyFilterGray(Mat* img, Mat* out);
-	void ApplyFilterColorCUDA(Mat * img, Mat * out, dim3 block, dim3 grid, size_t bytes);
 	Mat G;
-	float w, d, r;
+	float *d_kernel = NULL;
+	float d, r;
+	int w;
 
 #ifdef _DEBUG
 	inline std::string type2str(int type) {

@@ -8,8 +8,9 @@ int main(int argc, char **argv)
 {
 	cout << "Choose what type of image to load:\n\t1: Color\n\t2: Grayscale" << endl;
 
-	int selection, mode;
-	float width, sigma_d, sigma_r;
+#ifndef _DEBUG
+	int selection, mode, width;
+	float sigma_d, sigma_r;
 	std::cin >> selection;
 	cout << "Enter Width:" << endl;
 	std::cin >> width;
@@ -26,7 +27,13 @@ int main(int argc, char **argv)
 	}
 
 	cout << "Creating Bilateral Filter...\n";
-	BilateralFilter *bf = new BilateralFilter(width,sigma_d,sigma_r);
+	BilateralFilter *bf = new BilateralFilter(width, sigma_d, sigma_r);
+#else
+//	int mode = CV_LOAD_IMAGE_GRAYSCALE;
+	int mode = CV_LOAD_IMAGE_ANYCOLOR | CV_LOAD_IMAGE_ANYDEPTH;
+	cout << "Creating Bilateral Filter...\n";
+	BilateralFilter *bf = new BilateralFilter();
+#endif
 
 	cout << "Reading in image...\n";
 	Mat input = imread(inputPath, mode);
