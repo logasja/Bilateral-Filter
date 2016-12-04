@@ -9,7 +9,14 @@ int main(int argc, char **argv)
 	cout << "Choose what type of image to load:\n\t1: Color\n\t2: Grayscale" << endl;
 
 	int selection, mode;
+	float width, sigma_d, sigma_r;
 	std::cin >> selection;
+	cout << "Enter Width:" << endl;
+	std::cin >> width;
+	cout << "Enter Sigma d:" << endl;
+	std::cin >> sigma_d;
+	cout << "Enter Sigma r:" << endl;
+	std::cin >> sigma_r;
 
 	switch (selection)
 	{
@@ -19,7 +26,7 @@ int main(int argc, char **argv)
 	}
 
 	cout << "Creating Bilateral Filter...\n";
-	BilateralFilter *bf = new BilateralFilter();
+	BilateralFilter *bf = new BilateralFilter(width,sigma_d,sigma_r);
 
 	cout << "Reading in image...\n";
 	Mat input = imread(inputPath, mode);

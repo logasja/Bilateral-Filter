@@ -4,7 +4,7 @@ function [] = runDemo( )
 
     grayImage = imread('bw.png');
     grayImage = rgb2gray(grayImage);
-    %grayImage = imnoise(grayImage, 'gaussian');
+    grayImage = imnoise(grayImage, 'gaussian');
     % Get the dimensions of the image.
     % numberOfColorBands should be = 1.
     % Display the original gray scale image.
@@ -15,12 +15,12 @@ function [] = runDemo( )
     surf(double(grayImage));
     title('No Filter', 'FontSize', 16);
     subplot(1,4,3);
-    B = imfilter(grayImage,fspecial('gaussian',[23 23],10),'same');
+    B = imfilter(grayImage,fspecial('gaussian',[23 23],100),'same');
     surf(double(B));
     title('Gaussian Filter', 'FontSize', 16);
     subplot(1,4,4);
     A = im2double(grayImage);
-    B = bilateralFilter2(A);
+    B = bilateralFilter2(A, 5, [100 .2]);
     surf(double(B));
     title('Bilateral Filter', 'FontSize', 16);
     subplot(2,4,5);
