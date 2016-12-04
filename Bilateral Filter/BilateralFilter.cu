@@ -100,7 +100,7 @@ void color_bilateral_filter(const float* input,
 		rLab.y /= nLab.y;
 		rLab.z /= nLab.z;
 
-		char* outCharPtr = (char*)input;
+		char* outCharPtr = (char*)output;
 		float* outRow = (float*)(outCharPtr + yIdx*step);
 		outRow[xIdx] = rLab.x;
 		outRow[xIdx+1] = rLab.y;
@@ -133,29 +133,31 @@ void gray_bilateral_filter(const float* input,
 
 Mat BilateralFilter::ApplyFilterCUDA(Mat img)
 {
+	Mat out;
+
+	cv::cvtColor(img, img, CV_BGR2Lab);
+
 #ifdef _DEBUG
 	std::cout << "Data type of image:" << type2str(img.type()) << endl;
 	std::cout << "Data type of G Mat:" << type2str(G.type()) << endl;
-	cv::Point3_<float>* p = img.ptr<cv::Point3_<float>>(1023, 1023);
+	cv::Point3_<float>* p = img.ptr<cv::Point3_<float>>(0, 0);
 	std::cout << "image at (0,0):" << endl <<
 		"\t" << p->x << endl <<
 		"\t" << p->y << endl <<
 		"\t" << p->z << endl;
 #endif
 
-	Mat out;
-
-	cv::cvtColor(img, img, CV_BGR2Lab);
-
 	const size_t bytes = img.step * img.rows;
 
 	const size_t Gbytes = G.step * G.rows;
 
-	float* d_input, *d_output;
+	float* d_input, *d_output, *h_output;
 
 	// Allocation of device memory
 	CHECK_CUDA_ERROR(cudaMalloc<float>(&d_input, bytes), "CUDA Malloc Failed");
 	CHECK_CUDA_ERROR(cudaMalloc<float>(&d_output, bytes), "CUDA Malloc Failed");
+
+	h_output = (float*)malloc(bytes);
 
 	// Copy data from OpenCV input image to device memory
 	CHECK_CUDA_ERROR(cudaMemcpy(d_input, img.ptr<float>(), bytes, cudaMemcpyHostToDevice), "CUDA Memcpy Host to Device Failed");
@@ -191,11 +193,23 @@ Mat BilateralFilter::ApplyFilterCUDA(Mat img)
 	CHECK_CUDA_ERROR(cudaDeviceSynchronize(), "Kernel Launch Failed");
 
 	// Copy back data from the destination device memory to the OpenCV output image
-	CHECK_CUDA_ERROR(cudaMemcpy(out.ptr<float>(), d_output, bytes, cudaMemcpyDeviceToHost), "CUDA Memcpy Host To Device Failed");
+	CHECK_CUDA_ERROR(cudaMemcpy(h_output, d_output, bytes, cudaMemcpyDeviceToHost), "CUDA Memcpy Host To Device Failed");
 
 	// Free the device memory
 	CHECK_CUDA_ERROR(cudaFree(d_input), "CUDA Free Failed");
 	CHECK_CUDA_ERROR(cudaFree(d_output), "CUDA Free Failed");
+
+	out = Mat(img.rows, img.cols, CV_32FC3, h_output);
+
+#ifdef _DEBUG
+	std::cout << "Data type of image:" << type2str(img.type()) << endl;
+	std::cout << "Data type of G Mat:" << type2str(G.type()) << endl;
+	p = out.ptr<cv::Point3_<float>>(0, 0);
+	std::cout << "image at (0,0):" << endl <<
+		"\t" << p->x << endl <<
+		"\t" << p->y << endl <<
+		"\t" << p->z << endl;
+#endif
 
 	cv::cvtColor(out, out, CV_Lab2BGR);
 
