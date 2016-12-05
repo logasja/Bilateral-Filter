@@ -26,6 +26,22 @@ function [] = runDemo( )
     subplot(2,4,5);
     imshow(B);
     title('Bilateral Filter Result', 'FontSize', 16);
+
+    figure, subplot(1,3,1)
+    A = im2double(imread('../Test Images/test-small.jpg'));
+    imshow(A);
+    title('Original Image', 'FontSize', 16);
+    subplot(1,3,2)
+    B = imfilter(A,fspecial('gaussian',[5 5],2),'same');
+    imshow(B);
+    title('Gaussian Filter', 'FontSize', 16);
+    %profile on
+    B = bilateralFilter2(A);
+    %profile off
+    %profile viewer
+    subplot(1,3,3)
+    imshow(B);
+    title('Bilateral Filter', 'FontSize', 16);
     
     figure, subplot(1,3,1)
     A = im2double(imread('../Test Images/test-medium.jpg'));

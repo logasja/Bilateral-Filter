@@ -3,6 +3,7 @@
 using cv::Mat;
 using cv::imread;
 using std::cout;
+using std::endl;
 
 int main(int argc, char **argv)
 {
@@ -29,8 +30,8 @@ int main(int argc, char **argv)
 	cout << "Creating Bilateral Filter...\n";
 	BilateralFilter *bf = new BilateralFilter(width, sigma_d, sigma_r);
 #else
-//	int mode = CV_LOAD_IMAGE_GRAYSCALE;
-	int mode = CV_LOAD_IMAGE_ANYCOLOR | CV_LOAD_IMAGE_ANYDEPTH;
+	int mode = CV_LOAD_IMAGE_GRAYSCALE;
+//	int mode = CV_LOAD_IMAGE_ANYCOLOR | CV_LOAD_IMAGE_ANYDEPTH;
 	cout << "Creating Bilateral Filter...\n";
 	BilateralFilter *bf = new BilateralFilter();
 #endif
@@ -45,18 +46,24 @@ int main(int argc, char **argv)
 	// Converts the image to float with a domain of [0,1]
 	input.convertTo(input, CV_32FC3, 1/255.0);
 
-	cout << "Applying filter...\n";
-	Mat tmp = bf->ApplyFilterCUDA(input);
-	cv::imshow("Test", tmp);
-	cv::waitKey(0);
-	Mat output = bf->ApplyFilter(input);
+	cout << "Applying filter with CUDA...\n";
+	//Insert Timer
+	Mat cudaOut = bf->ApplyFilterCUDA(input);
 
 	cout << "Displaying output image...\n";
-	cv::imshow("Output Serial", output);
+	cv::imshow("Output CUDA", cudaOut);
+	cv::waitKey(1);
+
+	cout << "Applying filter serially...\n";
+	//Insert Timer
+	Mat out = bf->ApplyFilter(input);
+
+	cout << "Displaying output image...\n";
+	cv::imshow("Output Serial", out);
 	cv::waitKey(0);
 
-	cv::imwrite(outputPath, output);
 	delete bf;
-	output.deallocate();
+	cudaOut.deallocate();
+	out.deallocate();
 	input.deallocate();
 }

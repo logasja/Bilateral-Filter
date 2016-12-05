@@ -385,7 +385,7 @@ void BilateralFilter::ApplyFilterGray(Mat * img, Mat * out)
 		}
 #ifdef _DEBUG
 		// Displays row after computing
-		imshow("Output", *out);
+		imshow("Output Serial", *out);
 		waitKey(1);
 #endif
 	}
