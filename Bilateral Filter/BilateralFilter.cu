@@ -20,10 +20,22 @@ static inline void _safe_cuda_call(cudaError err, const char* msg, const char* f
 inline __device__
 float gaussian1d_gpu(float x, float sigma)
 {
-	float variance = powf(sigma, 2);
-	float power = pow(x, 2); //this doesnt work for __powf(x,2.0f) for some reason
+	float variance = powf(sigma, 2.f);
+	float power = powf(x, 2); //this doesnt work for __powf(x,2.0f) for some reason
 	float exponent = -power / (2 * variance);
-	return expf(exponent) / sqrt(2 * PI * variance);
+	return expf(exponent) / sqrtf(2 * PI * variance);
+}
+
+// An implementation of 3D gaussian calculation using optimized device functions
+inline __device__
+float gaussian3d_gpu(float x, float y, float z, float sigma)
+{
+	float variance = powf(sigma, 2.f);
+	float powerX = powf(x, 2.f);
+	float powerY = powf(y, 2.f);
+	float powerZ = powf(z, 2.f);
+	float exponent = -(powerX + powerY + powerZ) / (2 * variance);
+	return expf(exponent) / sqrtf(2.f * PI * variance);
 }
 
 // Kernel code for bilateral filtering of color image
@@ -52,10 +64,10 @@ void color_bilateral_filter(const float* input,
 
 		float3 cLab = make_float3(input[idx], input[idx + 1], input[idx + 2]);
 
-		float3 norm = make_float3(0.f, 0.f, 0.f);
+		float norm = 0.f;
 		float3 fResponse = make_float3(0.f, 0.f, 0.f);
-		float gSpatial;
-		float3 pLab, gRange, gWeight;
+		float gSpatial, gRange, gWeight;
+		float3 pLab;
 		int pIdx;
 		for (int i = -w; i <= w; i++)
 			for (int j = -w; j <= w; j++)
@@ -77,26 +89,20 @@ void color_bilateral_filter(const float* input,
 				int j1 = j + w;
 
 				gSpatial = kernel[i1*kWidth + j1];
-				gRange.x = gaussian1d_gpu(pLab.x - cLab.x, r);
-				gRange.y = gaussian1d_gpu(pLab.y - cLab.y, r);
-				gRange.z = gaussian1d_gpu(pLab.z - cLab.z, r);
-
-				gWeight.x = gSpatial * gRange.x;
-				gWeight.y = gSpatial * gRange.y;
-				gWeight.z = gSpatial * gRange.z;
-
-				norm.x += gWeight.x;
-				norm.y += gWeight.y;
-				norm.z += gWeight.z;
+				gRange = gaussian3d_gpu(pLab.x - cLab.x, pLab.y - cLab.y, pLab.z - cLab.z, r);
 				
-				fResponse.x += pLab.x * gWeight.x;
-				fResponse.y += pLab.y * gWeight.y;
-				fResponse.z += pLab.z * gWeight.z;
+				gWeight = gSpatial * gRange;
+
+				norm += gWeight;
+				
+				fResponse.x += pLab.x * gWeight;
+				fResponse.y += pLab.y * gWeight;
+				fResponse.z += pLab.z * gWeight;
 			}
 
-		fResponse.x /= norm.x;
-		fResponse.y /= norm.y;
-		fResponse.z /= norm.z;
+		fResponse.x /= norm;
+		fResponse.y /= norm;
+		fResponse.z /= norm;
 
 		output[idx] = fResponse.x;
 		output[idx + 1] = fResponse.y;
@@ -220,7 +226,7 @@ Mat BilateralFilter::ApplyFilterCUDA(Mat img)
 	if (tmp.channels() > 1)
 	{
 		// Launch bilateral filter kernel for color image
-		color_bilateral_filter << <grid, block >> >(d_input, d_kernel, r, w, tmp.cols, tmp.rows, d_output);
+		color_bilateral_filter << <grid, block >> >(d_input, d_kernel, r*100, w, tmp.cols, tmp.rows, d_output);
 	}
 	else
 	{
@@ -250,9 +256,9 @@ Mat BilateralFilter::ApplyFilterCUDA(Mat img)
 			"\t" << p->x << endl <<
 			"\t" << p->y << endl <<
 			"\t" << p->z << endl;
+#else
+		cv::cvtColor(out, out, CV_Lab2BGR);
 #endif
-
-		//cv::cvtColor(out, out, CV_Lab2BGR);
 	}
 	else
 	{

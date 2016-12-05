@@ -192,9 +192,8 @@ void BilateralFilter::ApplyFilterColor(Mat * img, Mat * out)
 			}
 #endif
 
-			// Calcuate H matrix
+			// Calculate the H matrix, which is the unnormalized gaussian values for differences in the window
 			Mat H = -(dL + da + db) / (2 * std::powf(rFilt, 2.f));
-
 			cv::exp(H, H);
 
 #ifdef _DEBUG
