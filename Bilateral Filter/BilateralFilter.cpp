@@ -110,8 +110,8 @@ void BilateralFilter::ApplyFilterColor(Mat * img, Mat * out)
 	{
 		for (j = 0; j <= colBound; j++)
 		{
+			/* Get local region taking into account the bounds of the image */
 #ifdef _DEBUG
-			// Get local region taking into account the bounds of the image
 			int iMin = std::max<int>(i - w, 0);
 			int iMax = std::min<int>(i + w + 1, rowBound);
 			int jMin = std::max<int>(j - w, 0);
@@ -126,8 +126,10 @@ void BilateralFilter::ApplyFilterColor(Mat * img, Mat * out)
 			cv::Range jMinMax(std::max<int>(j - w, 0), std::min<int>(j + w + 1, colBound));
 #endif
 
+			// The window of values around the center point (i,j)
 			I = tmp(iMinMax,jMinMax);
 			
+			// Split the submatrix into its L, a, and b values
 			cv::split(I,Ich);
 
 #ifdef _DEBUG
@@ -140,27 +142,29 @@ void BilateralFilter::ApplyFilterColor(Mat * img, Mat * out)
 			}
 #endif
 
-			cv::Point3_<float>* p = tmp.ptr<cv::Point3_<float>>(i, j);
+			// Retrieve a pointer to the center point
+			cv::Point3_<float>* cLab = tmp.ptr<cv::Point3_<float>>(i, j);
 
 #ifdef _DEBUG
 			if (i == 0 && j == 0)
 			{
 				std::cout << "The values of Lab at (0,0) are:\n" <<
-					"\tL:\t" << p->x << endl <<
-					"\ta:\t" << p->y << endl <<
-					"\tb:\t" << p->z << endl;
+					"\tL:\t" << cLab->x << endl <<
+					"\ta:\t" << cLab->y << endl <<
+					"\tb:\t" << cLab->z << endl;
 
 				cv::Point3_<float>* p = img->ptr<cv::Point3_<float>>(i, j);
-				std::cout << "The values of LBGR at (0,0) are:\n" <<
+				std::cout << "The values of BGR at (0,0) are:\n" <<
 					"\tB:\t" << p->x << endl <<
 					"\tG:\t" << p->y << endl <<
 					"\tR:\t" << p->z << endl << endl;
 			}
 #endif //_DEBUG
 
-			dL = Ich.at(0) - p->x;
-			da = Ich.at(1) - p->y;
-			db = Ich.at(2) - p->z;
+			// Get difference matrices dL, da, and db between window values and center value
+			dL = Ich.at(0) - cLab->x;
+			da = Ich.at(1) - cLab->y;
+			db = Ich.at(2) - cLab->z;
 
 #ifdef _DEBUG
 			if (i == 0 && j == 0)
@@ -270,6 +274,10 @@ void BilateralFilter::ApplyFilterColor(Mat * img, Mat * out)
 			o->z = cv::sum(F.mul(Ich.at(2))).val[0] / nF;
 #endif
 		}
+#ifdef _DEBUG
+		imshow("Output Serial", *out);
+		cv::waitKey(1);
+#endif
 	}
 
 	// Convert back to BGR to allow for writing to file
@@ -315,7 +323,7 @@ void BilateralFilter::ApplyFilterGray(Mat * img, Mat * out)
 			cv::Range iMinMax(std::max<int>(i - w, 0), std::min<int>(i + w + 1, rowBound));
 			cv::Range jMinMax(std::max<int>(j - w, 0), std::min<int>(j + w + 1, colBound));
 #endif
-
+			// The window of values around center point (i,j)
 			I = tmp(iMinMax, jMinMax);
 
 #ifdef _DEBUG
@@ -326,7 +334,7 @@ void BilateralFilter::ApplyFilterGray(Mat * img, Mat * out)
 			}
 #endif
 
-			/* Compute Gaussian intensity weights. */
+			/* Compute Gaussian range weights. */
 			Mat H = (I - img->at<float>(i, j));
 			H = -H.mul(H);
 			H = H / (2 * std::powf(r, 2.f));

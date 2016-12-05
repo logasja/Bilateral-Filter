@@ -34,18 +34,73 @@ void color_bilateral_filter(const float* input,
 							const int w,
 							const int width, 
 							const int height,
-							const int step,
-							const int gstep,
 							float* output)
 {
 	// 2D Index of current thread
 	const int xIdx = blockIdx.x * blockDim.x + threadIdx.x;
 	const int yIdx = blockIdx.y * blockDim.y + threadIdx.y;
 
+	const int adjustedWidth = width * 3;
+
 	//// Only valid threads can perform memory I/O
 	if ((xIdx < width) && (yIdx < height))
 	{
+		// The number of values per row in the kernel matrix
+		const int kWidth = w * 2 + 1;
 
+		const int idx = (yIdx * adjustedWidth) + (xIdx * 3);
+
+		float3 cLab = make_float3(input[idx], input[idx + 1], input[idx + 2]);
+
+		float3 norm = make_float3(0.f, 0.f, 0.f);
+		float3 fResponse = make_float3(0.f, 0.f, 0.f);
+		float gSpatial;
+		float3 pLab, gRange, gWeight;
+		int pIdx;
+		for (int i = -w; i <= w; i++)
+			for (int j = -w; j <= w; j++)
+			{
+				int x_sample = xIdx + i;
+				int y_sample = yIdx + j;
+
+				// mirroring edges
+				if (x_sample < 0) x_sample = -x_sample;
+				if (y_sample < 0) y_sample = -y_sample;
+				if (x_sample > width - 1) x_sample = width - 1 - i;
+				if (y_sample > height - 1) y_sample = height - 1 - j;
+
+				pIdx = (y_sample * adjustedWidth) + (x_sample * 3);
+
+				pLab = make_float3(input[pIdx], input[pIdx+1], input[pIdx+2]);
+
+				int i1 = i + w;
+				int j1 = j + w;
+
+				gSpatial = kernel[i1*kWidth + j1];
+				gRange.x = gaussian1d_gpu(pLab.x - cLab.x, r);
+				gRange.y = gaussian1d_gpu(pLab.y - cLab.y, r);
+				gRange.z = gaussian1d_gpu(pLab.z - cLab.z, r);
+
+				gWeight.x = gSpatial * gRange.x;
+				gWeight.y = gSpatial * gRange.y;
+				gWeight.z = gSpatial * gRange.z;
+
+				norm.x += gWeight.x;
+				norm.y += gWeight.y;
+				norm.z += gWeight.z;
+				
+				fResponse.x += pLab.x * gWeight.x;
+				fResponse.y += pLab.y * gWeight.y;
+				fResponse.z += pLab.z * gWeight.z;
+			}
+
+		fResponse.x /= norm.x;
+		fResponse.y /= norm.y;
+		fResponse.z /= norm.z;
+
+		output[idx] = fResponse.x;
+		output[idx + 1] = fResponse.y;
+		output[idx + 2] = fResponse.z;
 	}
 }
 
@@ -57,8 +112,6 @@ void gray_bilateral_filter(const float* input,
 							const int w,
 							const int width,
 							const int height,
-							const int step, 
-							const int gstep,
 							float* output)
 {
 	// 2D Index of current thread
@@ -115,6 +168,7 @@ void gray_bilateral_filter(const float* input,
 
 Mat BilateralFilter::ApplyFilterCUDA(Mat img)
 {
+	Mat tmp;
 	const size_t bytes = img.step * img.rows;
 	const size_t Gbytes = G.step * G.rows;
 	float* d_input, *d_output, *h_output;
@@ -122,18 +176,22 @@ Mat BilateralFilter::ApplyFilterCUDA(Mat img)
 	// If the input image is color
 	if (img.channels() > 1)
 	{
-		cv::cvtColor(img, img, CV_BGR2Lab);
+		cv::cvtColor(img, tmp, CV_BGR2Lab);
 
 #ifdef _DEBUG
 		std::cout << "Data type of image:" << type2str(img.type()) << endl;
 		std::cout << "Data type of G Mat:" << type2str(G.type()) << endl;
 		std::cout << "G mat:" << G << endl << endl;
-		cv::Point3_<float>* p = img.ptr<cv::Point3_<float>>(0, 0);
+		cv::Point3_<float>* p = tmp.ptr<cv::Point3_<float>>(0, 0);
 		std::cout << "image at (0,0):" << endl <<
 			"\t" << p->x << endl <<
 			"\t" << p->y << endl <<
 			"\t" << p->z << endl;
 #endif
+	}
+	else
+	{
+		tmp = img.clone();
 	}
 
 	// Allocation of device memory
@@ -143,7 +201,7 @@ Mat BilateralFilter::ApplyFilterCUDA(Mat img)
 	h_output = (float*)malloc(bytes);
 
 	// Copy data from OpenCV input image to device memory
-	CHECK_CUDA_ERROR(cudaMemcpy(d_input, img.ptr<float>(), bytes, cudaMemcpyHostToDevice), "CUDA Memcpy Host to Device Failed");
+	CHECK_CUDA_ERROR(cudaMemcpy(d_input, tmp.ptr<float>(), bytes, cudaMemcpyHostToDevice), "CUDA Memcpy Host to Device Failed");
 
 	// Allocate kernel on device memory and copy G to it if it has not already
 	if (!d_kernel)
@@ -157,17 +215,17 @@ Mat BilateralFilter::ApplyFilterCUDA(Mat img)
 	const dim3 block(16, 16);
 
 	// Grid size in order to cover whole image
-	const dim3 grid((img.cols + block.x - 1) / block.x, (img.rows + block.y - 1) / block.y);
+	const dim3 grid((tmp.cols + block.x - 1) / block.x, (tmp.rows + block.y - 1) / block.y);
 
-	if (img.channels() > 1)
+	if (tmp.channels() > 1)
 	{
 		// Launch bilateral filter kernel for color image
-		color_bilateral_filter << <grid, block >> >(d_input, d_kernel, r, w, img.cols, img.rows, img.step, G.step, d_output);
+		color_bilateral_filter << <grid, block >> >(d_input, d_kernel, r, w, tmp.cols, tmp.rows, d_output);
 	}
 	else
 	{
 		// Launch bilateral filter kernel for grayscale image
-		gray_bilateral_filter << <grid, block >> >(d_input, d_kernel, r, w, img.cols, img.rows, img.step, G.step, d_output);
+		gray_bilateral_filter << <grid, block >> >(d_input, d_kernel, r, w, tmp.cols, tmp.rows, d_output);
 	}
 
 	// Synchronize to check for kernel launch errors
@@ -182,9 +240,9 @@ Mat BilateralFilter::ApplyFilterCUDA(Mat img)
 
 	Mat out;
 
-	if (img.channels() > 1)
+	if (tmp.channels() > 1)
 	{
-		out = Mat(img.rows, img.cols, CV_32FC3, h_output, img.step);
+		out = Mat(tmp.rows, tmp.cols, CV_32FC3, h_output, tmp.step);
 #ifdef _DEBUG
 		std::cout << "Data type of image:" << type2str(out.type()) << endl;
 		cv::Point3_<float>* p = out.ptr<cv::Point3_<float>>(0, 0);
@@ -194,13 +252,13 @@ Mat BilateralFilter::ApplyFilterCUDA(Mat img)
 			"\t" << p->z << endl;
 #endif
 
-		cv::cvtColor(out, out, CV_Lab2BGR);
+		//cv::cvtColor(out, out, CV_Lab2BGR);
 	}
 	else
 	{
-		out = Mat(img.rows, img.cols, CV_32FC1, h_output, img.step);
+		out = Mat(tmp.rows, tmp.cols, CV_32FC1, h_output, tmp.step);
 	}
-
+	tmp.deallocate();
 	return out;
 }
 

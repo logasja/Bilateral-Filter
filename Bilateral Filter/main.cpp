@@ -30,8 +30,8 @@ int main(int argc, char **argv)
 	cout << "Creating Bilateral Filter...\n";
 	BilateralFilter *bf = new BilateralFilter(width, sigma_d, sigma_r);
 #else
-	int mode = CV_LOAD_IMAGE_GRAYSCALE;
-//	int mode = CV_LOAD_IMAGE_ANYCOLOR | CV_LOAD_IMAGE_ANYDEPTH;
+//	int mode = CV_LOAD_IMAGE_GRAYSCALE;
+	int mode = CV_LOAD_IMAGE_ANYCOLOR | CV_LOAD_IMAGE_ANYDEPTH;
 	cout << "Creating Bilateral Filter...\n";
 	BilateralFilter *bf = new BilateralFilter();
 #endif
@@ -48,7 +48,7 @@ int main(int argc, char **argv)
 
 	cout << "Applying filter with CUDA...\n";
 	//Insert Timer
-	Mat cudaOut = bf->ApplyFilterCUDA(input);
+	Mat cudaOut = bf->ApplyFilterCUDA(input.clone());
 
 	cout << "Displaying output image...\n";
 	cv::imshow("Output CUDA", cudaOut);
@@ -56,7 +56,7 @@ int main(int argc, char **argv)
 
 	cout << "Applying filter serially...\n";
 	//Insert Timer
-	Mat out = bf->ApplyFilter(input);
+	Mat out = bf->ApplyFilter(input.clone());
 
 	cout << "Displaying output image...\n";
 	cv::imshow("Output Serial", out);
