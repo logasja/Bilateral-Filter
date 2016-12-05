@@ -5,15 +5,20 @@ using cv::imread;
 using std::cout;
 using std::endl;
 
+std::string path;
+
 int main(int argc, char **argv)
 {
+	cout << "Please enter the path to the file without quotes..." << endl;
+	std::getline(std::cin,path);
+
 	cout << "Choose what type of image to load:\n\t1: Color\n\t2: Grayscale" << endl;
 
 #ifndef _DEBUG
 	int selection, mode, width;
 	float sigma_d, sigma_r;
 	std::cin >> selection;
-	cout << "Enter Width:" << endl;
+	cout << "Enter Kernel Width:" << endl;
 	std::cin >> width;
 	cout << "Enter Sigma d:" << endl;
 	std::cin >> sigma_d;
@@ -37,7 +42,9 @@ int main(int argc, char **argv)
 #endif
 
 	cout << "Reading in image...\n";
-	Mat input = imread(inputPath, mode);
+	Mat input = imread(path, mode);
+	if (input.empty())
+		throw std::exception("The image could not be loaded successfully.");
 	cout << "Displaying input image...\n";
 	cv::imshow("Input",input);
 	cv::waitKey(0);

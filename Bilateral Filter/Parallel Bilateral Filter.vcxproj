@@ -168,7 +168,6 @@ copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"</Command>
     <ClCompile Include="stdafx.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\const.h" />
     <ClInclude Include="BilateralFilter.cuh" />
     <ClInclude Include="BilateralFilter.h" />
     <ClInclude Include="stdafx.h" />

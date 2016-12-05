@@ -2,7 +2,7 @@
 
 #include "device_functions.h"
 
-static inline void _safe_cuda_call(cudaError err, const char* msg, const char* file_name, const int line_number)
+static inline void _check_cuda_call(cudaError err, const char* msg, const char* file_name, const int line_number)
 {
 	if (err != cudaSuccess)
 	{
@@ -12,7 +12,7 @@ static inline void _safe_cuda_call(cudaError err, const char* msg, const char* f
 	}
 }
 
-#define CHECK_CUDA_ERROR(call, msg) _safe_cuda_call((call),(msg),__FILE__,__LINE__)
+#define CHECK_CUDA_ERROR(call, msg) _check_cuda_call((call),(msg),__FILE__,__LINE__)
 
 #define PI 3.14159265
 
