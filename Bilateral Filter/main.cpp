@@ -14,7 +14,7 @@ int main(int argc, char **argv)
 	std::getline(std::cin,path);
 
 	if (path.empty())
-		path = "../Test Images/test-large.jpg";
+		path = "../Test Images/8MP/test4.jpg";
 
 	cout << "Choose what type of image to load:\n\t1: Color\n\t2: Grayscale" << endl;
 
@@ -65,9 +65,9 @@ int main(int argc, char **argv)
 	cout << "Finished in " << total.count() << " ms.\n";
 
 	cout << "Displaying output image...\n";
-	cv::namedWindow("Output CUDA", CV_WINDOW_NORMAL);
+	cv::namedWindow("Output CUDA", CV_WINDOW_AUTOSIZE);
 	cv::imshow("Output CUDA", cudaOut);
-	cv::waitKey(1);
+	cv::waitKey(0);
 
 	start = std::chrono::high_resolution_clock::now();
 	cout << "Applying filter serially...";
@@ -82,6 +82,6 @@ int main(int argc, char **argv)
 
 	delete bf;
 	cudaOut.deallocate();
-	out.deallocate();
+	//out.deallocate();
 	input.deallocate();
 }

@@ -18,23 +18,23 @@ static inline void _check_cuda_call(cudaError err, const char* msg, const char* 
 
 // An implementation of 1d gaussian calcualtion using optimized device functions
 inline __device__
-float gaussian1d_gpu(float x, float sigma)
+float gaussian1d(float x, float sigma)
 {
 	float variance = powf(sigma, 2.f);
-	float power = powf(x, 2); //this doesnt work for __powf(x,2.0f) for some reason
-	float exponent = -power / (2 * variance);
+	float pX = powf(x, 2);
+	float exponent = -pX / (2 * variance);
 	return expf(exponent) / sqrtf(2 * PI * variance);
 }
 
 // An implementation of 3D gaussian calculation using optimized device functions
 inline __device__
-float gaussian3d_gpu(float x, float y, float z, float sigma)
+float gaussian3d(float x, float y, float z, float sigma)
 {
 	float variance = powf(sigma, 2.f);
-	float powerX = powf(x, 2.f);
-	float powerY = powf(y, 2.f);
-	float powerZ = powf(z, 2.f);
-	float exponent = -(powerX + powerY + powerZ) / (2 * variance);
+	float pX = powf(x, 2.f);
+	float pY = powf(y, 2.f);
+	float pZ = powf(z, 2.f);
+	float exponent = -(pX + pY + pZ) / (2 * variance);
 	return expf(exponent) / sqrtf(2.f * PI * variance);
 }
 
@@ -89,7 +89,7 @@ void color_bilateral_filter(const float* input,
 				int j1 = j + w;
 
 				gSpatial = kernel[i1*kWidth + j1];
-				gRange = gaussian3d_gpu(pLab.x - cLab.x, pLab.y - cLab.y, pLab.z - cLab.z, r);
+				gRange = gaussian3d(pLab.x - cLab.x, pLab.y - cLab.y, pLab.z - cLab.z, r);
 				
 				gWeight = gSpatial * gRange;
 
@@ -160,15 +160,14 @@ void gray_bilateral_filter(const float* input,
 				int j1 = j + w;
 
 				gSpatial = kernel[i1*kWidth + j1];
-				gRange = gaussian1d_gpu(cIntensity - pIntensity, r);
+				gRange = gaussian1d(cIntensity - pIntensity, r);
 
 				gWeight = gSpatial * gRange;
 				norm = norm + gWeight;
 				fResponse = fResponse + (pIntensity * gWeight);
 			}
 
-		fResponse /= norm;
-		output[idx] = fResponse;
+		output[idx] = fResponse / norm;
 	}
 }
 
