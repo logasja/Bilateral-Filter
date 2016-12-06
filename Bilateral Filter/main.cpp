@@ -14,7 +14,7 @@ int main(int argc, char **argv)
 	std::getline(std::cin,path);
 
 	if (path.empty())
-		path = "../Test Images/8MP/test4.jpg";
+		path = "../Test Images/14-2MP/test4.jpg";
 
 	cout << "Choose what type of image to load:\n\t1: Color\n\t2: Grayscale" << endl;
 
