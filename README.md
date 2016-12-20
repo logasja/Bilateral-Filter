@@ -1,5 +1,7 @@
-# Bilateral-Filter-Rocket
+![alt tag](https://cloud.githubusercontent.com/assets/7151661/21337229/85e9a490-c639-11e6-8c6a-0b4340b140e2.png)
 
+# Bilateral Filter
+Bilateral filter in both a naive serial implementation and a CUDA implementation using OpenCV purely for its Mat structure and imread functionality.
 ## Required
 - [CUDA 8.0 Libraries](https://developer.nvidia.com/cuda-downloads)
 - [OpenCV 3.1 Libraries](http://opencv.org/downloads.html)
